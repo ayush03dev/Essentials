@@ -3,14 +3,18 @@ package net.essentialsx.discord;
 import com.earth2me.essentials.IConf;
 import com.earth2me.essentials.config.ConfigurateUtil;
 import com.earth2me.essentials.config.EssentialsConfiguration;
+import com.earth2me.essentials.utils.AdventureUtil;
 import com.earth2me.essentials.utils.FormatUtil;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Role;
 import net.essentialsx.api.v2.ChatType;
+import net.essentialsx.discord.util.MessageUtil;
 import org.apache.logging.log4j.Level;
 import org.bukkit.entity.Player;
 
 import java.io.File;
+import java.lang.management.ManagementFactory;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,7 +24,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-import static com.earth2me.essentials.I18n.tl;
+import static com.earth2me.essentials.I18n.tlLiteral;
 
 public class DiscordSettings implements IConf {
     private final EssentialsConfiguration config;
@@ -33,6 +37,7 @@ public class DiscordSettings implements IConf {
     private Activity statusActivity;
 
     private List<Pattern> discordFilter;
+    private Map<String, String> roleAliases;
 
     private MessageFormat consoleFormat;
     private Level consoleLogLevel;
@@ -90,6 +95,18 @@ public class DiscordSettings implements IConf {
 
     public boolean isShowDiscordAttachments() {
         return config.getBoolean("show-discord-attachments", true);
+    }
+
+    public List<String> getDiscordRolesBlacklist() {
+        return config.getList("discord-role-blacklist", String.class);
+    }
+
+    public Boolean getInvertDiscordRoleBlacklist() {
+        return config.getBoolean("invert-discord-role-blacklist", false);
+    }
+
+    public String getRoleAlias(final Role role) {
+        return roleAliases.getOrDefault(role.getId(), roleAliases.getOrDefault(role.getName(), role.getName()));
     }
 
     public List<String> getPermittedFormattingRoles() {
@@ -166,6 +183,10 @@ public class DiscordSettings implements IConf {
 
     public List<Pattern> getConsoleFilters() {
         return consoleFilter;
+    }
+
+    public int getConsoleSkipDelay() {
+        return config.getInt("console.skip-delay", 2);
     }
 
     public boolean isShowAvatar() {
@@ -408,7 +429,12 @@ public class DiscordSettings implements IConf {
     }
 
     public String getStartMessage() {
-        return config.getString("messages.server-start", ":white_check_mark: The server has started!");
+        final MessageFormat format = generateMessageFormat(getFormatString("server-start"), ":white_check_mark: The server has started in {starttimeseconds} seconds!", false,
+                "starttimeseconds");
+        return MessageUtil.formatMessage(format,
+                // measures time since the JVM started and converts it to seconds
+                String.format("%.2f", (float)Math.abs(ManagementFactory.getRuntimeMXBean().getStartTime() - System.currentTimeMillis()) / 1000)
+        );
     }
 
     public String getStopMessage() {
@@ -439,7 +465,7 @@ public class DiscordSettings implements IConf {
     @Override
     public void reloadConfig() {
         if (plugin.isInvalidStartup()) {
-            plugin.getLogger().warning(tl("discordReloadInvalid"));
+            plugin.getLogger().warning(AdventureUtil.miniToLegacy(tlLiteral("discordReloadInvalid")));
             return;
         }
 
@@ -472,7 +498,7 @@ public class DiscordSettings implements IConf {
                 activityType = Activity.ActivityType.valueOf(activity);
             }
         } catch (IllegalArgumentException e) {
-            activityType = Activity.ActivityType.DEFAULT;
+            activityType = Activity.ActivityType.PLAYING;
         }
         if (activityType != null) {
             statusActivity = Activity.of(activityType, config.getString("presence.message", "Minecraft"));
@@ -503,6 +529,13 @@ public class DiscordSettings implements IConf {
                 discordFilter = Collections.emptyList();
             }
         }
+
+        final Map<String, String> roleAliases = new HashMap<>();
+
+        for (Map.Entry<String, String> entry : config.getStringMap("discord-roles-aliases").entrySet()) {
+            roleAliases.put(entry.getKey(), FormatUtil.replaceFormat(entry.getValue()));
+        }
+        this.roleAliases = roleAliases;
 
         consoleLogLevel = Level.toLevel(config.getString("console.log-level", null), Level.INFO);
 

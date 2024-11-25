@@ -9,7 +9,7 @@ import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.util.Locale;
 
-import static com.earth2me.essentials.I18n.tl;
+import static com.earth2me.essentials.I18n.tlLiteral;
 
 public final class NumberUtil {
 
@@ -65,30 +65,31 @@ public final class NumberUtil {
         return str;
     }
 
+    /**
+     * Note: this *can* return MiniMessage, make sure if this is sent to a player that it is wrapped in AdventureUtil#parsed.
+     */
     public static String displayCurrency(final BigDecimal value, final IEssentials ess) {
-        String currency = formatAsPrettyCurrency(value);
-        String sign = "";
-        if (value.signum() < 0) {
-            currency = currency.substring(1);
-            sign = "-";
-        }
-        if (ess.getSettings().isCurrencySymbolSuffixed()) {
-            return sign + tl("currency", currency, ess.getSettings().getCurrencySymbol());
-        }
-        return sign + tl("currency", ess.getSettings().getCurrencySymbol(), currency);
+        return displayCurrency(value, ess, false);
     }
 
+    /**
+     * Note: this *can* return MiniMessage, make sure if this is sent to a player that it is wrapped in AdventureUtil#parsed.
+     */
     public static String displayCurrencyExactly(final BigDecimal value, final IEssentials ess) {
-        String currency = value.toPlainString();
+        return displayCurrency(value, ess, true);
+    }
+
+    private static String displayCurrency(final BigDecimal value, final IEssentials ess, final boolean exact) {
+        String currency = exact ? value.toPlainString() : formatAsPrettyCurrency(value);
         String sign = "";
         if (value.signum() < 0) {
             currency = currency.substring(1);
             sign = "-";
         }
         if (ess.getSettings().isCurrencySymbolSuffixed()) {
-            return sign + tl("currency", currency, ess.getSettings().getCurrencySymbol());
+            return sign + tlLiteral("currency", currency, ess.getSettings().getCurrencySymbol());
         }
-        return sign + tl("currency", ess.getSettings().getCurrencySymbol(), currency);
+        return sign + tlLiteral("currency", ess.getSettings().getCurrencySymbol(), currency);
     }
 
     public static String sanitizeCurrencyString(final String input, final IEssentials ess) {
@@ -127,6 +128,15 @@ public final class NumberUtil {
             }
         }
         return true;
+    }
+
+    public static boolean isHexadecimal(final String sNum) {
+        try {
+            Integer.parseInt(sNum, 16);
+            return true;
+        } catch (final NumberFormatException e) {
+            return false;
+        }
     }
 
     /**
